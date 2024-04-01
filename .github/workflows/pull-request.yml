@@ -23,7 +23,7 @@ jobs:
         with:
           diff-search: true
           token: ${{ secrets.GITHUB_TOKEN }}
-          file-url: https://raw.githubusercontent.com/mcastiello/cancellable-promise/master/package.json
+          file-url: https://raw.githubusercontent.com/mcastiello/html-context/master/package.json
           static-checking: localIsNew
       - name: Complete Step
         if: ${{ steps.check.outputs.changed == 'true' && steps.check.outputs.type != 'undefined' }}
