@@ -1,0 +1,32 @@
+name: HTML Context Release
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - "src/**"
+      - "package.json"
+
+jobs:
+  build:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ./package.json
+#      - name: Configure
+#        run: |
+#          echo //registry.npmjs.org/:_authToken=${{secrets.NPM_TOKEN}} >> ~/.npmrc
+#      - name: Install
+#        run: yarn install
+#      - name: Build
+#        run: yarn build
+#      - name: Release
+#        run: yarn publish --access=public
