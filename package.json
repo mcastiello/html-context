@@ -1,6 +1,6 @@
 {
   "name": "@mcastiello/html-context",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "author": "Marco Castiello <marco.castiello@gmail.com>",
   "license": "MIT",
   "source": "src/index.ts",

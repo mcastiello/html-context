@@ -1,4 +1,4 @@
-name: HTML Context Release
+name: Cancellable Promise Release
 
 on:
   push:
@@ -21,12 +21,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: ./package.json
-#      - name: Configure
-#        run: |
-#          echo //registry.npmjs.org/:_authToken=${{secrets.NPM_TOKEN}} >> ~/.npmrc
-#      - name: Install
-#        run: yarn install
-#      - name: Build
-#        run: yarn build
-#      - name: Release
-#        run: yarn publish --access=public
+      - name: Configure
+        run: |
+          echo //registry.npmjs.org/:_authToken=${{secrets.NPM_TOKEN}} >> ~/.npmrc
+      - name: Install
+        run: yarn install
+      - name: Build
+        run: yarn build
+      - name: Release
+        run: yarn publish --access=public
