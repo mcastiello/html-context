@@ -321,4 +321,44 @@ describe("HTML Context Element", () => {
 
     document.body.removeChild(parent);
   });
+
+  test("Make sure the DOM elements are updated", () => {
+    class ContextComponent extends HTMLContextElement<Context, State, Action> {
+      constructor() {
+        super();
+        this.addEventListener(WebComponentEvents.Initialised, () => {
+          this.innerHTML = "<span></span>";
+        });
+      }
+
+      render() {
+        const span = this.querySelector("span");
+        if (span) {
+          span.textContent = this.state?.value || this.context?.value || null;
+        }
+      }
+    }
+    customElements.define("ctx-component", ContextComponent);
+
+    document.body.innerHTML = `
+      <html-context class="context">
+        <div class="container">
+          <ctx-component class="component"></ctx-component>
+        </div>
+      </html-context>
+    `;
+
+    const store = createStore(reducer);
+    const container = document.body.querySelector(".context") as HTMLContextElement<Context, State, Action>;
+    container.context = {
+      value: "-",
+    };
+    container.store = store;
+
+    expect(document.body.querySelector(".component span")?.textContent).toEqual("-");
+
+    store.dispatch(Action.Update, "test");
+
+    expect(document.body.querySelector(".component span")?.textContent).toEqual("test");
+  });
 });
