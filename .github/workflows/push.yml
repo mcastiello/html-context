@@ -1,4 +1,4 @@
-name: Cancellable Promise Release
+name: HTML Context Release
 
 on:
   push:
