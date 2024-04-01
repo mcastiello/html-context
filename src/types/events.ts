@@ -1,10 +1,9 @@
-import { IContextElement, StateOf, Store } from "./types";
+import { IHTMLContextElement, StateOf, Store } from "./types";
 
 export enum WebComponentEvents {
   Initialised = "webcomponentinitialised",
   Connected = "webcomponentconnected",
   Disconnected = "webcomponentdisconnected",
-  Adopted = "webcomponentadopted",
   AttributeChanged = "webcomponentattributechanged",
   ContextUpdated = "webcomponentcontextupdated",
   StoreConnected = "webcomponentstoreconnected",
@@ -16,7 +15,7 @@ export type WebComponentEventPayload<
   Context extends Record<string, unknown> = Record<string, unknown>,
   StoreManager extends Store = Store,
 > = {
-  target: IContextElement<Context, StoreManager>;
+  target: IHTMLContextElement<Context, StoreManager>;
 };
 
 export type WebComponentAttributeChangedEventPayload<
@@ -57,7 +56,6 @@ export type WebComponentEventMap<
   [WebComponentEvents.Initialised]: CustomEvent<WebComponentEventPayload<Context, StoreManager>>;
   [WebComponentEvents.Connected]: CustomEvent<WebComponentEventPayload<Context, StoreManager>>;
   [WebComponentEvents.Disconnected]: CustomEvent<WebComponentEventPayload<Context, StoreManager>>;
-  [WebComponentEvents.Adopted]: CustomEvent<WebComponentEventPayload<Context, StoreManager>>;
   [WebComponentEvents.AttributeChanged]: CustomEvent<WebComponentAttributeChangedEventPayload<Context, StoreManager>>;
   [WebComponentEvents.ContextUpdated]: CustomEvent<WebComponentContextUpdatedEventPayload<Context, StoreManager>>;
   [WebComponentEvents.StoreConnected]: CustomEvent<WebComponentStoreConnectedEventPayload<Context, StoreManager>>;

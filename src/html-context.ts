@@ -1,25 +1,28 @@
 import {
   ActionOf,
   EventListener,
-  IContextElement,
+  IHTMLContextElement,
   StateOf,
   Store,
   StoredListener,
   WebComponentAttributeChangedEventPayload,
   WebComponentContextUpdatedEventPayload,
   WebComponentEvent,
+  WebComponentEventOf,
   WebComponentEventPayload,
   WebComponentEvents,
   WebComponentRenderEventPayload,
   WebComponentStoreConnectedEventPayload,
 } from "./types";
 
+export const HTMLContextElementTag = "context";
+
 export class HTMLContextElement<
     Context extends Record<string, unknown> = Record<string, unknown>,
     StoreManager extends Store = Store,
   >
   extends HTMLElement
-  implements IContextElement<Context, StoreManager>
+  implements IHTMLContextElement<Context, StoreManager>
 {
   #internalContext: Context | undefined;
   #externalContext: Context | undefined;
@@ -28,6 +31,8 @@ export class HTMLContextElement<
   #state: StateOf<StoreManager> | undefined;
   #initialised = false;
   #clearStoreSubscription: (() => void) | undefined;
+  #removeStoreListener: (() => void) | undefined;
+  #removeContextListener: (() => void) | undefined;
   #monitoredAttributes: Record<string, string | undefined> = {};
 
   #eventMap: Partial<{
@@ -105,23 +110,8 @@ export class HTMLContextElement<
       }),
     );
     this.#clearStoreSubscription?.();
-    this.#clearStoreSubscription = undefined;
-    this.#externalContext = undefined;
-    this.#externalStore = undefined;
-  }
-
-  adoptedCallback() {
-    this.dispatchEvent(
-      new CustomEvent<WebComponentEventPayload<Context, StoreManager>>(WebComponentEvents.Adopted, {
-        detail: {
-          target: this,
-        },
-        bubbles: false,
-        cancelable: false,
-      }),
-    );
-
-    this.#renderComponent();
+    this.#removeContextListener?.();
+    this.#removeStoreListener?.();
   }
 
   attributeChangedCallback(attributeName: string, oldValue: string | null, newValue: string | null) {
@@ -146,12 +136,65 @@ export class HTMLContextElement<
     this.#renderComponent();
   }
 
-  protected get parentContext() {
+  #onExternalContextUpdate = ({
+    detail: { context },
+  }: WebComponentEventOf<WebComponentEvents.ContextUpdated, Context, StoreManager>) => {
+    this.#externalContext = context;
+    this.#notifyContextUpdate();
+  };
+
+  protected get parentContext(): Context | undefined {
+    if (!this.#externalContext) {
+      const container = this.contextContainer;
+      if (container) {
+        this.#externalContext = container.context;
+        container.addEventListener(WebComponentEvents.ContextUpdated, this.#onExternalContextUpdate);
+        this.#removeContextListener = () => {
+          this.#externalContext = undefined;
+          this.#removeContextListener = undefined;
+          this.contextContainer?.removeEventListener(WebComponentEvents.ContextUpdated, this.#onExternalContextUpdate);
+        };
+        if (this.#externalContext) {
+          this.#notifyContextUpdate();
+        }
+      }
+    }
     return this.#externalContext;
   }
 
-  protected get parentStore() {
+  #onExternalStoreUpdate = ({
+    detail: { store },
+  }: WebComponentEventOf<WebComponentEvents.StoreConnected, Context, StoreManager>) => {
+    this.#externalStore = store;
+    this.#connectToStore();
+  };
+
+  protected get parentStore(): StoreManager | undefined {
+    if (!this.#externalStore) {
+      const container = this.contextContainer;
+      if (container) {
+        this.#externalStore = container.store;
+        container.addEventListener(WebComponentEvents.StoreConnected, this.#onExternalStoreUpdate);
+        this.#removeStoreListener = () => {
+          this.#externalStore = undefined;
+          this.#removeStoreListener = undefined;
+          this.contextContainer?.removeEventListener(WebComponentEvents.StoreConnected, this.#onExternalStoreUpdate);
+        };
+        if (this.#externalStore) {
+          this.#connectToStore();
+        }
+      }
+    }
     return this.#externalStore;
+  }
+
+  protected get contextContainer(): HTMLContextElement<Context, StoreManager> | undefined {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    let container: Element | null | undefined = this;
+    do {
+      container = container instanceof ShadowRoot ? container.host : container?.parentElement;
+    } while (container && !(container instanceof HTMLContextElement) && container.tagName.toLowerCase() !== "body");
+    return container instanceof HTMLContextElement ? container : undefined;
   }
 
   get context() {
@@ -159,7 +202,15 @@ export class HTMLContextElement<
   }
 
   set context(value) {
+    if (value) {
+      this.#removeContextListener?.();
+    }
     this.#internalContext = value;
+
+    this.#notifyContextUpdate();
+  }
+
+  #notifyContextUpdate() {
     this.dispatchEvent(
       new CustomEvent<WebComponentContextUpdatedEventPayload<Context, StoreManager>>(
         WebComponentEvents.ContextUpdated,
@@ -182,6 +233,9 @@ export class HTMLContextElement<
   }
 
   set store(value) {
+    if (value) {
+      this.#removeStoreListener?.();
+    }
     this.#internalStore = value;
 
     this.#connectToStore();
@@ -199,6 +253,7 @@ export class HTMLContextElement<
       this.#clearStoreSubscription = () => {
         clear();
         this.#state = undefined;
+        this.#clearStoreSubscription = undefined;
 
         this.dispatchEvent(
           new CustomEvent<WebComponentEventPayload<Context, StoreManager>>(WebComponentEvents.StoreDisconnected, {
@@ -278,7 +333,7 @@ export class HTMLContextElement<
   render() {}
 
   #renderComponent() {
-    if (this.#initialised && this.#state) {
+    if (this.#initialised) {
       this.dispatchEvent(
         new CustomEvent<WebComponentRenderEventPayload<Context, StoreManager>>(WebComponentEvents.Render, {
           detail: {

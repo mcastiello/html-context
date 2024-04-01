@@ -19,7 +19,10 @@ export type EventListener<
   Event extends WebComponentEvent,
   Context extends Record<string, unknown> = Record<string, unknown>,
   StoreManager extends Store = Store,
-> = (this: IContextElement<Context, StoreManager>, event: WebComponentEventOf<Event, Context, StoreManager>) => unknown;
+> = (
+  this: IHTMLContextElement<Context, StoreManager>,
+  event: WebComponentEventOf<Event, Context, StoreManager>,
+) => unknown;
 
 export type StoredListener<
   Event extends WebComponentEvent,
@@ -27,7 +30,7 @@ export type StoredListener<
   StoreManager extends Store = Store,
 > = { listener: EventListener<Event, Context, StoreManager>; useCapture: boolean };
 
-export interface IContextElement<
+export interface IHTMLContextElement<
   Context extends Record<string, unknown> = Record<string, unknown>,
   StoreManager extends Store = Store,
 > extends HTMLElement {
