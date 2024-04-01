@@ -1,52 +1,47 @@
 import { WebComponentEvent, WebComponentEventOf } from "./events";
 
 export type GenericState = Record<string, unknown>;
-export type GenericAction = string | number;
+export type GenericAction = string | number | symbol;
 
 export type Store<State extends GenericState = GenericState, Action extends GenericAction = GenericAction> = {
   subscribe: (subscription: (state: State) => void, actions?: Action[]) => () => void;
 };
 
-type StoreProperties<StoreType> = StoreType extends Store<infer State, infer Action> ? [State, Action] : [];
-export type StateOf<StoreType> = StoreProperties<StoreType>[0] extends undefined
-  ? GenericState
-  : StoreProperties<StoreType>[0];
-export type ActionOf<StoreType> = StoreProperties<StoreType>[1] extends undefined
-  ? GenericAction
-  : StoreProperties<StoreType>[1];
-
 export type EventListener<
   Event extends WebComponentEvent,
   Context extends Record<string, unknown> = Record<string, unknown>,
-  StoreManager extends Store = Store,
+  State extends GenericState = GenericState,
+  Actions extends GenericAction = GenericAction,
 > = (
-  this: IHTMLContextElement<Context, StoreManager>,
-  event: WebComponentEventOf<Event, Context, StoreManager>,
+  this: IHTMLContextElement<Context, State, Actions>,
+  event: WebComponentEventOf<Event, Context, State, Actions>,
 ) => unknown;
 
 export type StoredListener<
   Event extends WebComponentEvent,
   Context extends Record<string, unknown> = Record<string, unknown>,
-  StoreManager extends Store = Store,
-> = { listener: EventListener<Event, Context, StoreManager>; useCapture: boolean };
+  State extends GenericState = GenericState,
+  Actions extends GenericAction = GenericAction,
+> = { listener: EventListener<Event, Context, State, Actions>; useCapture: boolean };
 
 export interface IHTMLContextElement<
   Context extends Record<string, unknown> = Record<string, unknown>,
-  StoreManager extends Store = Store,
+  State extends GenericState = GenericState,
+  Actions extends GenericAction = GenericAction,
 > extends HTMLElement {
-  store: StoreManager | undefined;
+  store: Store<State, Actions> | undefined;
   context: Context | undefined;
   monitoredAttributes: Record<string, string | undefined>;
   readonly isInitialised: boolean;
-  readonly observedActions: ActionOf<StoreManager>[] | undefined;
+  readonly observedActions: Actions[] | undefined;
   addEventListener<Event extends WebComponentEvent>(
     type: Event,
-    listener: EventListener<Event, Context, StoreManager>,
+    listener: EventListener<Event, Context, State, Actions>,
     options?: boolean | AddEventListenerOptions,
   ): void;
   removeEventListener<Event extends WebComponentEvent>(
     type: Event,
-    listener: EventListener<Event, Context, StoreManager>,
+    listener: EventListener<Event, Context, State, Actions>,
     options?: boolean | EventListenerOptions,
   ): void;
   clearEventListeners<Event extends WebComponentEvent>(type?: Event): void;

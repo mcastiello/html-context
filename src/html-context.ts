@@ -1,8 +1,8 @@
 import {
-  ActionOf,
   EventListener,
+  GenericAction,
+  GenericState,
   IHTMLContextElement,
-  StateOf,
   Store,
   StoredListener,
   WebComponentAttributeChangedEventPayload,
@@ -15,20 +15,21 @@ import {
   WebComponentStoreConnectedEventPayload,
 } from "./types";
 
-export const HTMLContextElementTag = "context";
+export const HTMLContextElementTag: string = "html-context";
 
 export class HTMLContextElement<
     Context extends Record<string, unknown> = Record<string, unknown>,
-    StoreManager extends Store = Store,
+    State extends GenericState = GenericState,
+    Actions extends GenericAction = GenericAction,
   >
   extends HTMLElement
-  implements IHTMLContextElement<Context, StoreManager>
+  implements IHTMLContextElement<Context, State, Actions>
 {
   #internalContext: Context | undefined;
   #externalContext: Context | undefined;
-  #internalStore: StoreManager | undefined;
-  #externalStore: StoreManager | undefined;
-  #state: StateOf<StoreManager> | undefined;
+  #internalStore: Store<State, Actions> | undefined;
+  #externalStore: Store<State, Actions> | undefined;
+  #state: State | undefined;
   #initialised = false;
   #clearStoreSubscription: (() => void) | undefined;
   #removeStoreListener: (() => void) | undefined;
@@ -36,7 +37,7 @@ export class HTMLContextElement<
   #monitoredAttributes: Record<string, string | undefined> = {};
 
   #eventMap: Partial<{
-    [Event in WebComponentEvent]: StoredListener<Event, Context, StoreManager>[];
+    [Event in WebComponentEvent]: StoredListener<Event, Context, State, Actions>[];
   }> = {};
 
   static get observedAttributes(): string[] {
@@ -45,14 +46,13 @@ export class HTMLContextElement<
 
   constructor() {
     super();
-    const attributes: string[] = this.constructor["observedAttributes" as keyof typeof this.constructor] || [];
-    attributes.forEach((attribute) => {
+    const attributes: string[] = this.constructor["observedAttributes" as keyof typeof this.constructor];
+    attributes?.forEach((attribute) => {
       this.#monitoredAttributes[attribute] = undefined;
     });
-    this.addEventListener(WebComponentEvents.Render, () => this.render());
   }
 
-  get observedActions(): ActionOf<StoreManager>[] | undefined {
+  get observedActions(): Actions[] | undefined {
     return undefined;
   }
 
@@ -73,7 +73,7 @@ export class HTMLContextElement<
       this.#initialised = true;
 
       this.dispatchEvent(
-        new CustomEvent<WebComponentEventPayload<Context, StoreManager>>(WebComponentEvents.Initialised, {
+        new CustomEvent<WebComponentEventPayload<Context, State, Actions>>(WebComponentEvents.Initialised, {
           detail: {
             target: this,
           },
@@ -83,7 +83,7 @@ export class HTMLContextElement<
       );
     }
     this.dispatchEvent(
-      new CustomEvent<WebComponentEventPayload<Context, StoreManager>>(WebComponentEvents.Connected, {
+      new CustomEvent<WebComponentEventPayload<Context, State, Actions>>(WebComponentEvents.Connected, {
         detail: {
           target: this,
         },
@@ -101,7 +101,7 @@ export class HTMLContextElement<
 
   disconnectedCallback() {
     this.dispatchEvent(
-      new CustomEvent<WebComponentEventPayload<Context, StoreManager>>(WebComponentEvents.Disconnected, {
+      new CustomEvent<WebComponentEventPayload<Context, State, Actions>>(WebComponentEvents.Disconnected, {
         detail: {
           target: this,
         },
@@ -116,7 +116,7 @@ export class HTMLContextElement<
 
   attributeChangedCallback(attributeName: string, oldValue: string | null, newValue: string | null) {
     this.dispatchEvent(
-      new CustomEvent<WebComponentAttributeChangedEventPayload<Context, StoreManager>>(
+      new CustomEvent<WebComponentAttributeChangedEventPayload<Context, State, Actions>>(
         WebComponentEvents.AttributeChanged,
         {
           detail: {
@@ -138,7 +138,7 @@ export class HTMLContextElement<
 
   #onExternalContextUpdate = ({
     detail: { context },
-  }: WebComponentEventOf<WebComponentEvents.ContextUpdated, Context, StoreManager>) => {
+  }: WebComponentEventOf<WebComponentEvents.ContextUpdated, Context, State, Actions>) => {
     this.#externalContext = context;
     this.#notifyContextUpdate();
   };
@@ -164,12 +164,12 @@ export class HTMLContextElement<
 
   #onExternalStoreUpdate = ({
     detail: { store },
-  }: WebComponentEventOf<WebComponentEvents.StoreConnected, Context, StoreManager>) => {
+  }: WebComponentEventOf<WebComponentEvents.StoreConnected, Context, State, Actions>) => {
     this.#externalStore = store;
     this.#connectToStore();
   };
 
-  protected get parentStore(): StoreManager | undefined {
+  protected get parentStore(): Store<State, Actions> | undefined {
     if (!this.#externalStore) {
       const container = this.contextContainer;
       if (container) {
@@ -188,12 +188,12 @@ export class HTMLContextElement<
     return this.#externalStore;
   }
 
-  protected get contextContainer(): HTMLContextElement<Context, StoreManager> | undefined {
+  protected get contextContainer(): HTMLContextElement<Context, State, Actions> | undefined {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     let container: Element | null | undefined = this;
     do {
-      container = container instanceof ShadowRoot ? container.host : container?.parentElement;
-    } while (container && !(container instanceof HTMLContextElement) && container.tagName.toLowerCase() !== "body");
+      container = container instanceof ShadowRoot ? container.host : (container?.parentNode as Element);
+    } while (container && !(container instanceof HTMLContextElement) && container.tagName?.toLowerCase() !== "body");
     return container instanceof HTMLContextElement ? container : undefined;
   }
 
@@ -212,7 +212,7 @@ export class HTMLContextElement<
 
   #notifyContextUpdate() {
     this.dispatchEvent(
-      new CustomEvent<WebComponentContextUpdatedEventPayload<Context, StoreManager>>(
+      new CustomEvent<WebComponentContextUpdatedEventPayload<Context, State, Actions>>(
         WebComponentEvents.ContextUpdated,
         {
           detail: {
@@ -249,6 +249,7 @@ export class HTMLContextElement<
     if (store) {
       const clear = store.subscribe((state) => {
         this.#state = state;
+        this.#renderComponent();
       }, this.observedActions);
       this.#clearStoreSubscription = () => {
         clear();
@@ -256,7 +257,7 @@ export class HTMLContextElement<
         this.#clearStoreSubscription = undefined;
 
         this.dispatchEvent(
-          new CustomEvent<WebComponentEventPayload<Context, StoreManager>>(WebComponentEvents.StoreDisconnected, {
+          new CustomEvent<WebComponentEventPayload<Context, State, Actions>>(WebComponentEvents.StoreDisconnected, {
             detail: {
               target: this,
             },
@@ -266,7 +267,7 @@ export class HTMLContextElement<
         );
       };
       this.dispatchEvent(
-        new CustomEvent<WebComponentStoreConnectedEventPayload<Context, StoreManager>>(
+        new CustomEvent<WebComponentStoreConnectedEventPayload<Context, State, Actions>>(
           WebComponentEvents.StoreConnected,
           {
             detail: {
@@ -278,22 +279,21 @@ export class HTMLContextElement<
           },
         ),
       );
-
-      this.#renderComponent();
     }
+
+    this.#renderComponent();
   }
 
   addEventListener<Event extends WebComponentEvent>(
     type: Event,
-    listener: EventListener<Event, Context, StoreManager>,
+    listener: EventListener<Event, Context, State, Actions>,
     options?: boolean | AddEventListenerOptions,
   ) {
     const useCapture = typeof options === "boolean" ? options : !!options?.capture;
-    const index =
-      this.#eventMap[type]?.findIndex(
-        (eventListener) => eventListener.listener === listener && eventListener.useCapture === useCapture,
-      ) || -1;
-    if (index < 0) {
+    const index = this.#eventMap[type]?.findIndex(
+      (eventListener) => eventListener.listener === listener && eventListener.useCapture === useCapture,
+    );
+    if (index === undefined || index < 0) {
       if (!this.#eventMap[type]) {
         this.#eventMap[type] = [];
       }
@@ -304,15 +304,14 @@ export class HTMLContextElement<
 
   removeEventListener<Event extends WebComponentEvent>(
     type: Event,
-    listener: EventListener<Event, Context, StoreManager>,
+    listener: EventListener<Event, Context, State, Actions>,
     options?: boolean | EventListenerOptions,
   ) {
     const useCapture = typeof options === "boolean" ? options : !!options?.capture;
-    const index =
-      this.#eventMap[type]?.findIndex(
-        (eventListener) => eventListener.listener === listener && eventListener.useCapture === useCapture,
-      ) || -1;
-    if (index >= 0) {
+    const index = this.#eventMap[type]?.findIndex(
+      (eventListener) => eventListener.listener === listener && eventListener.useCapture === useCapture,
+    );
+    if (index !== undefined && index >= 0) {
       this.#eventMap[type]?.splice(index, 1);
       super.removeEventListener(type as string, listener as EventListenerOrEventListenerObject, options);
     }
@@ -320,8 +319,8 @@ export class HTMLContextElement<
 
   clearEventListeners<Event extends WebComponentEvent>(type?: Event) {
     if (type) {
-      const list: StoredListener<Event, Context, StoreManager>[] = this.#eventMap[type] || [];
-      list.forEach(({ listener, useCapture }) => this.removeEventListener(type, listener, useCapture));
+      const list: StoredListener<Event, Context, State, Actions>[] | undefined = this.#eventMap[type];
+      list?.forEach(({ listener, useCapture }) => this.removeEventListener(type, listener, useCapture));
 
       delete this.#eventMap[type];
     } else {
@@ -333,12 +332,12 @@ export class HTMLContextElement<
   render() {}
 
   #renderComponent() {
-    if (this.#initialised) {
+    if (this.isInitialised) {
       this.dispatchEvent(
-        new CustomEvent<WebComponentRenderEventPayload<Context, StoreManager>>(WebComponentEvents.Render, {
+        new CustomEvent<WebComponentRenderEventPayload<Context, State, Actions>>(WebComponentEvents.Render, {
           detail: {
             target: this,
-            state: this.#state,
+            state: this.state,
             context: this.context,
             attributes: this.monitoredAttributes,
           },
@@ -346,6 +345,7 @@ export class HTMLContextElement<
           cancelable: false,
         }),
       );
+      this.render();
     }
   }
 }

@@ -29,7 +29,15 @@
       "default": "./dist/index.js"
     }
   },
-  "keywords": ["HTML", "HTML Element", "WebComponent", "Context", "Store", "HTML Context", "HTMLContextElement"],
+  "keywords": [
+    "HTML",
+    "HTML Element",
+    "WebComponent",
+    "Context",
+    "Store",
+    "HTML Context",
+    "HTMLContextElement"
+  ],
   "engines": {
     "node": ">20.0.0"
   },
@@ -42,9 +50,13 @@
     "quality:check": "eslint src/**/*.ts"
   },
   "devDependencies": {
+    "@mcastiello/simple-store": "^0.0.3",
+    "@testing-library/dom": "^9.3.4",
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/jest": "^29.5.12",
     "@typescript-eslint/eslint-plugin": "^6.13.1",
     "@typescript-eslint/parser": "^6.13.1",
-    "@types/jest": "^29.5.12",
     "eslint": "^8.54.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.1",
